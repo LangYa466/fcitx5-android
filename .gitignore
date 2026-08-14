@@ -102,3 +102,7 @@ lint/tmp/
 
 ### Kotlin ###
 .kotlin/
+
+# built apk outputs
+apk-release/
+apk-signed/

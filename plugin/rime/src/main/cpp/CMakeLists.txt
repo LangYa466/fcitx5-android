@@ -42,18 +42,78 @@ add_subdirectory(fcitx5-rime)
 install(FILES
         "default.yaml"
         "rime-essay/essay.txt"
-        "rime-prelude/key_bindings.yaml"
-        "rime-prelude/punctuation.yaml"
-        "rime-prelude/symbols.yaml"
-        "rime-luna-pinyin/luna_pinyin_fluency.schema.yaml"
-        "rime-luna-pinyin/luna_pinyin_simp.schema.yaml"
-        "rime-luna-pinyin/luna_pinyin_tw.schema.yaml"
-        "rime-luna-pinyin/luna_pinyin.dict.yaml"
-        "rime-luna-pinyin/luna_pinyin.schema.yaml"
-        "rime-luna-pinyin/luna_quanpin.schema.yaml"
-        "rime-luna-pinyin/pinyin.yaml"
         "rime-stroke/stroke.dict.yaml"
         "rime-stroke/stroke.schema.yaml"
+        "rime-ice/rime_ice.schema.yaml"
+        "rime-ice/rime_ice.dict.yaml"
+        "rime-ice/melt_eng.schema.yaml"
+        "rime-ice/melt_eng.dict.yaml"
+        "rime-ice/radical_pinyin.schema.yaml"
+        "rime-ice/radical_pinyin.dict.yaml"
+        "rime-ice/symbols_v.yaml"
+        "rime-ice/symbols_caps_v.yaml"
+        "rime-ice/custom_phrase.txt"
         DESTINATION "${FCITX_INSTALL_DATADIR}/rime-data"
+        COMPONENT prebuilt-assets
+        )
+
+install(FILES
+        "rime-ice/cn_dicts/41448.dict.yaml"
+        "rime-ice/cn_dicts/8105.dict.yaml"
+        "rime-ice/cn_dicts/base.dict.yaml"
+        "rime-ice/cn_dicts/ext.dict.yaml"
+        "rime-ice/cn_dicts/others.dict.yaml"
+        "rime-ice/cn_dicts/tencent.dict.yaml"
+        DESTINATION "${FCITX_INSTALL_DATADIR}/rime-data/cn_dicts"
+        COMPONENT prebuilt-assets
+        )
+
+install(FILES
+        "rime-ice/en_dicts/en.dict.yaml"
+        "rime-ice/en_dicts/en_ext.dict.yaml"
+        "rime-ice/en_dicts/cn_en.txt"
+        "rime-ice/en_dicts/cn_en_abc.txt"
+        "rime-ice/en_dicts/cn_en_double_pinyin.txt"
+        "rime-ice/en_dicts/cn_en_flypy.txt"
+        "rime-ice/en_dicts/cn_en_jiajia.txt"
+        "rime-ice/en_dicts/cn_en_mspy.txt"
+        "rime-ice/en_dicts/cn_en_sogou.txt"
+        "rime-ice/en_dicts/cn_en_ziguang.txt"
+        DESTINATION "${FCITX_INSTALL_DATADIR}/rime-data/en_dicts"
+        COMPONENT prebuilt-assets
+        )
+
+install(FILES
+        "rime-ice/lua/autocap_filter.lua"
+        "rime-ice/lua/calc_translator.lua"
+        "rime-ice/lua/cn_en_spacer.lua"
+        "rime-ice/lua/convert_ar_num_to_zh.lua"
+        "rime-ice/lua/corrector.lua"
+        "rime-ice/lua/date_translator.lua"
+        "rime-ice/lua/debuger.lua"
+        "rime-ice/lua/en_spacer.lua"
+        "rime-ice/lua/force_gc.lua"
+        "rime-ice/lua/is_in_user_dict.lua"
+        "rime-ice/lua/long_word_filter.lua"
+        "rime-ice/lua/lunar.db"
+        "rime-ice/lua/lunar.lua"
+        "rime-ice/lua/number_translator.lua"
+        "rime-ice/lua/pin_cand_filter.lua"
+        "rime-ice/lua/reduce_english_filter.lua"
+        "rime-ice/lua/search.lua"
+        "rime-ice/lua/select_character.lua"
+        "rime-ice/lua/t9_preedit.lua"
+        "rime-ice/lua/unicode.lua"
+        "rime-ice/lua/uuid.lua"
+        "rime-ice/lua/v_filter.lua"
+        DESTINATION "${FCITX_INSTALL_DATADIR}/rime-data/lua"
+        COMPONENT prebuilt-assets
+        )
+
+install(FILES
+        "rime-ice/opencc/emoji.json"
+        "rime-ice/opencc/emoji.txt"
+        "rime-ice/opencc/others.txt"
+        DESTINATION "${FCITX_INSTALL_DATADIR}/opencc"
         COMPONENT prebuilt-assets
         )
