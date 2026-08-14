@@ -1,0 +1,34 @@
+# Rime dictionary
+# encoding: utf-8
+# 邮箱域名自动补全字典
+
+---
+name: email
+version: "2026-08-14"
+sort: by_weight
+use_preset_vocabulary: false
+...
+
+gmail.com	gmail
+gmail.com	gm
+qq.com	qq
+outlook.com	outlook
+163.com	163
+126.com	126
+hotmail.com	hotmail
+foxmail.com	foxmail
+icloud.com	icloud
+yahoo.com	yahoo
+proton.me	proton
+googlemail.com	googlemail
+yahoo.com.cn	yahoo
+sina.com	sina
+aliyun.com	aliyun
+tom.com	tom
+msn.com	msn
+me.com	me
+zoho.com	zoho
+protonmail.com	protonmail
+aol.com	aol
+gmx.com	gmx
+mail.ru	mail

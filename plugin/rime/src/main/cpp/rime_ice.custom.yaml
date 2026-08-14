@@ -1,0 +1,12 @@
+# email 域名自动补全
+# 输入 abc@ 后，候选列表会出现常用邮箱域名，选中后补全为 abc@xxx.com
+patch:
+  engine/segmentors/@next: affix_segmentor@email
+  engine/translators/@next: affix_translator@email
+  email:
+    tag: email
+    dictionary: email
+    prefix: "@"
+    suffix: ""
+    tips: "〔邮箱域名〕"
+    enable_completion: true
