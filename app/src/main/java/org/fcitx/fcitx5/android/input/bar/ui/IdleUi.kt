@@ -8,6 +8,7 @@ import android.content.Context
 import android.transition.Slide
 import android.transition.TransitionManager
 import android.transition.TransitionSet
+import android.util.AttributeSet
 import android.view.View
 import android.view.Gravity
 import android.view.animation.AlphaAnimation
@@ -15,16 +16,19 @@ import android.view.animation.AnimationSet
 import android.view.animation.TranslateAnimation
 import android.widget.Space
 import android.widget.ViewAnimator
+import com.soundwave.lib.SoundWaveView
 import org.fcitx.fcitx5.android.R
 import org.fcitx.fcitx5.android.data.prefs.AppPrefs
 import org.fcitx.fcitx5.android.data.theme.Theme
 import org.fcitx.fcitx5.android.input.bar.KawaiiBarComponent
 import org.fcitx.fcitx5.android.input.bar.ui.idle.ButtonsBarUi
 import org.fcitx.fcitx5.android.input.bar.ui.idle.ClipboardSuggestionUi
+import org.fcitx.fcitx5.android.input.bar.ui.idle.CommonWordSuggestionUi
 import org.fcitx.fcitx5.android.input.bar.ui.idle.InlineSuggestionsUi
 import org.fcitx.fcitx5.android.input.bar.ui.idle.NumberRow
 import org.fcitx.fcitx5.android.input.keyboard.CommonKeyActionListener
 import org.fcitx.fcitx5.android.input.popup.PopupComponent
+import org.fcitx.fcitx5.android.input.voice.VoiceInputComponent
 import splitties.dimensions.dp
 import splitties.views.dsl.constraintlayout.after
 import splitties.views.dsl.constraintlayout.before
@@ -39,8 +43,10 @@ import splitties.views.dsl.core.add
 import splitties.views.dsl.core.lParams
 import splitties.views.dsl.core.frameLayout
 import splitties.views.dsl.core.matchParent
+import splitties.views.dsl.core.view
 import splitties.views.imageResource
 import timber.log.Timber
+import kotlin.math.roundToInt
 
 class IdleUi(
     override val ctx: Context,
@@ -50,7 +56,7 @@ class IdleUi(
 ) : Ui {
 
     enum class State {
-        Empty, Toolbar, Clipboard, NumberRow, InlineSuggestion
+        Empty, Toolbar, Clipboard, CommonWord, NumberRow, InlineSuggestion
     }
 
     var currentState = State.Empty
@@ -79,9 +85,33 @@ class IdleUi(
 
     val emptyBar = Space(ctx)
 
+    // only shown while voice input is active, keeps the idle bar plain otherwise
+    private val soundWave = SoundWaveView(ctx).apply {
+        enableIdle(true)
+        setColor(theme.altKeyTextColor)
+        maxVolume = 12
+        minVolume = 2
+        minVolumeBarHeight = dp(3)
+        maxVolumeBarHeight = dp(KawaiiBarComponent.HEIGHT - 6)
+        maxIdleHeight = maxVolumeBarHeight / 2
+        visibility = View.GONE
+    }
+
+    val audioVolumeListener = VoiceInputComponent.AudioVolumeListener { listening, dB ->
+        if (listening) {
+            soundWave.visibility = View.VISIBLE
+            soundWave.handleVolume(dB.roundToInt())
+        } else {
+            soundWave.stopDance()
+            soundWave.visibility = View.GONE
+        }
+    }
+
     val buttonsUi = ButtonsBarUi(ctx, theme)
 
     val clipboardUi = ClipboardSuggestionUi(ctx, theme)
+
+    val commonWordUi = CommonWordSuggestionUi(ctx, theme)
 
     val numberRow = NumberRow(ctx, theme).apply {
         visibility = View.GONE
@@ -93,6 +123,7 @@ class IdleUi(
         add(emptyBar, lParams(matchParent, matchParent))
         add(buttonsUi.root, lParams(matchParent, matchParent))
         add(clipboardUi.root, lParams(matchParent, matchParent))
+        add(commonWordUi.root, lParams(matchParent, matchParent))
         add(inlineSuggestionsBar.root, lParams(matchParent, matchParent))
     }
 
@@ -124,6 +155,11 @@ class IdleUi(
             centerVertically()
         })
         add(animator, lParams(matchConstraints, matchParent) {
+            after(menuButton)
+            before(hideKeyboardButton)
+            centerVertically()
+        })
+        add(soundWave, lParams(matchConstraints, matchParent) {
             after(menuButton)
             before(hideKeyboardButton)
             centerVertically()
@@ -221,8 +257,9 @@ class IdleUi(
             State.Empty -> animator.displayedChild = 0
             State.Toolbar -> animator.displayedChild = 1
             State.Clipboard -> animator.displayedChild = 2
+            State.CommonWord -> animator.displayedChild = 3
             State.NumberRow -> {}
-            State.InlineSuggestion -> animator.displayedChild = 3
+            State.InlineSuggestion -> animator.displayedChild = 4
         }
         if (state == State.NumberRow) {
             numberRow.keyActionListener = commonKeyActionListener.listener

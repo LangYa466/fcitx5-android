@@ -25,6 +25,7 @@ import org.fcitx.fcitx5.android.BuildConfig
 import org.fcitx.fcitx5.android.R
 import org.fcitx.fcitx5.android.data.prefs.AppPrefs
 import org.fcitx.fcitx5.android.databinding.ActivityMainBinding
+import org.fcitx.fcitx5.android.input.voice.VoiceInputComponent
 import org.fcitx.fcitx5.android.ui.main.settings.SettingsRoute
 import org.fcitx.fcitx5.android.ui.setup.SetupActivity
 import org.fcitx.fcitx5.android.utils.navigateWithAnim
@@ -98,6 +99,8 @@ class MainActivity : AppCompatActivity() {
             Intent.ACTION_MAIN -> if (SetupActivity.shouldShowUp()) {
                 startActivity<SetupActivity>()
             }
+            VoiceInputComponent.ACTION_REQUEST_VOICE_PERMISSION ->
+                requestVoiceInputPermission()
             Intent.ACTION_VIEW -> intent.data?.let {
                 AlertDialog.Builder(this)
                     .setTitle(R.string.pinyin_dict)
@@ -118,6 +121,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private var needNotifications by AppPrefs.getInstance().internal.needNotifications
+
+    private fun requestVoiceInputPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
+            checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQUEST_CODE_RECORD_AUDIO)
+        } else {
+            VoiceInputComponent.onVoicePermissionGranted?.invoke()
+        }
+    }
 
     private fun checkNotificationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -150,9 +163,19 @@ class MainActivity : AppCompatActivity() {
         grantResults: IntArray
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode != 0) return
-        // do not ask again if user denied the request
-        needNotifications = grantResults.getOrNull(0) == PackageManager.PERMISSION_GRANTED
+        when (requestCode) {
+            0 -> {
+                // do not ask again if user denied the request
+                needNotifications = grantResults.getOrNull(0) == PackageManager.PERMISSION_GRANTED
+            }
+            REQUEST_CODE_RECORD_AUDIO -> {
+                val granted =
+                    grantResults.getOrNull(0) == PackageManager.PERMISSION_GRANTED
+                val callback = VoiceInputComponent.onVoicePermissionGranted
+                VoiceInputComponent.onVoicePermissionGranted = null
+                if (granted) callback?.invoke()
+            }
+        }
     }
 
     override fun onStop() {
@@ -163,6 +186,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     companion object {
+        private const val REQUEST_CODE_RECORD_AUDIO = 1
         const val EXTRA_SETTINGS_ROUTE = "${BuildConfig.APPLICATION_ID}.EXTRA_SETTINGS_ROUTE"
     }
 

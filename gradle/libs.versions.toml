@@ -36,6 +36,7 @@ androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref =
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 androidx-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
 androidx-room-paging = { module = "androidx.room:room-paging", version.ref = "room" }
+androidx-room-testing = { module = "androidx.room:room-testing", version.ref = "room" }
 androidx-startup = { module = "androidx.startup:startup-runtime", version = "1.2.0" }
 androidx-viewpager2 = { module = "androidx.viewpager2:viewpager2", version = "1.1.0" }
 material = { module = "com.google.android.material:material", version = "1.14.0" }
@@ -44,6 +45,7 @@ arrow-functions = { module = "io.arrow-kt:arrow-functions", version.ref = "arrow
 imagecropper = { module = "com.vanniktech:android-image-cropper", version = "4.7.0" }
 flexbox = { module = "com.google.android.flexbox:flexbox", version = "3.0.0" }
 dependency = { module = "org.mechdancer:dependency", version = "0.1.2" }
+soundwavelib = { module = "io.github.ultimatehandsomeboy666:soundwavelib", version = "1.0.1" }
 timber = { module = "com.jakewharton.timber:timber", version = "5.0.1" }
 splitties-bitflags = { module = "com.louiscad.splitties:splitties-bitflags", version.ref = "splitties" }
 splitties-dimensions = { module = "com.louiscad.splitties:splitties-dimensions", version.ref = "splitties" }

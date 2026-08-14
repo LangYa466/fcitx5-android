@@ -13,12 +13,12 @@ import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InlineSuggestion
 import android.view.inputmethod.InlineSuggestionsResponse
-import android.view.inputmethod.InputMethodSubtype
 import android.widget.FrameLayout
 import android.widget.ViewAnimator
 import android.widget.inline.InlineContentView
 import androidx.annotation.Keep
 import androidx.annotation.RequiresApi
+import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -34,6 +34,9 @@ import org.fcitx.fcitx5.android.data.clipboard.ClipboardManager
 import org.fcitx.fcitx5.android.data.clipboard.db.ClipboardEntry
 import org.fcitx.fcitx5.android.data.prefs.AppPrefs
 import org.fcitx.fcitx5.android.data.prefs.ManagedPreference
+import org.fcitx.fcitx5.android.data.quickphrase.CommonWordMatcher
+import org.fcitx.fcitx5.android.data.quickphrase.QuickPhraseEntry
+import org.fcitx.fcitx5.android.data.quickphrase.QuickPhraseManager
 import org.fcitx.fcitx5.android.data.theme.ThemeManager
 import org.fcitx.fcitx5.android.input.bar.ExpandButtonStateMachine.State.ClickToAttachWindow
 import org.fcitx.fcitx5.android.input.bar.ExpandButtonStateMachine.State.ClickToDetachWindow
@@ -63,11 +66,12 @@ import org.fcitx.fcitx5.android.input.keyboard.CommonKeyActionListener
 import org.fcitx.fcitx5.android.input.keyboard.CustomGestureView
 import org.fcitx.fcitx5.android.input.keyboard.KeyboardWindow
 import org.fcitx.fcitx5.android.input.popup.PopupComponent
+import org.fcitx.fcitx5.android.input.panel.PluginPanelWindow
 import org.fcitx.fcitx5.android.input.status.StatusAreaWindow
+import org.fcitx.fcitx5.android.input.voice.VoiceInputComponent
 import org.fcitx.fcitx5.android.input.wm.InputWindow
 import org.fcitx.fcitx5.android.input.wm.InputWindowManager
 import org.fcitx.fcitx5.android.utils.AppUtil
-import org.fcitx.fcitx5.android.utils.InputMethodUtil
 import org.mechdancer.dependency.DynamicScope
 import org.mechdancer.dependency.manager.must
 import splitties.bitflags.hasFlag
@@ -78,6 +82,7 @@ import splitties.views.dsl.core.lParams
 import splitties.views.dsl.core.matchParent
 import java.util.concurrent.Executor
 import kotlin.coroutines.resume
+import timber.log.Timber
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.atan2
@@ -94,6 +99,7 @@ class KawaiiBarComponent : UniqueViewComponent<KawaiiBarComponent, FrameLayout>(
     private val horizontalCandidate: HorizontalCandidateComponent by manager.must()
     private val commonKeyActionListener: CommonKeyActionListener by manager.must()
     private val popup: PopupComponent by manager.must()
+    private val voiceInput: VoiceInputComponent by manager.must()
 
     private val prefs = AppPrefs.getInstance()
 
@@ -103,20 +109,37 @@ class KawaiiBarComponent : UniqueViewComponent<KawaiiBarComponent, FrameLayout>(
     private val expandedCandidateStyle by prefs.keyboard.expandedCandidateStyle
     private val expandToolbarByDefault by prefs.keyboard.expandToolbarByDefault
     private val toolbarNumRowOnPassword by prefs.keyboard.toolbarNumRowOnPassword
-    private val showVoiceInputButton by prefs.keyboard.showVoiceInputButton
-    private val preferredVoiceInput by prefs.keyboard.preferredVoiceInput
 
     private var clipboardTimeoutJob: Job? = null
 
     private var isClipboardFresh: Boolean = false
+    private var commonWords: List<QuickPhraseEntry> = emptyList()
+    private var commonWordMatch: CommonWordMatcher.Match? = null
+    private var commonWordSuggestionsAllowed: Boolean = true
     private var isInlineSuggestionPresent: Boolean = false
     private var isCapabilityFlagsPassword: Boolean = false
     private var isKeyboardLayoutNumber: Boolean = false
     private var isToolbarManuallyToggled: Boolean = false
 
+    /**
+     * Whether the interactive input panel window is currently attached.
+     * While active, the Kawaii bar is not replaced by a title bar; plugin
+     * candidates are shown in the shared candidate bar instead.
+     */
+    private var pluginPanelActive = false
+
     private enum class NumberRowState { Auto, ForceShow, ForceHide }
 
     private var numberRowState = NumberRowState.Auto
+
+    @Keep
+    private val onCommonWordsChangedListener =
+        QuickPhraseManager.OnCommonWordsChangedListener {
+            service.lifecycleScope.launch {
+                commonWords = it
+                refreshCommonWordSuggestion()
+            }
+        }
 
     @Keep
     private val onClipboardUpdateListener =
@@ -176,6 +199,7 @@ class KawaiiBarComponent : UniqueViewComponent<KawaiiBarComponent, FrameLayout>(
     private fun evalIdleUiState(fromUser: Boolean = false) {
         val newState = when {
             numberRowState == NumberRowState.ForceShow -> IdleUi.State.NumberRow
+            commonWordMatch != null -> IdleUi.State.CommonWord
             isClipboardFresh -> IdleUi.State.Clipboard
             isInlineSuggestionPresent -> IdleUi.State.InlineSuggestion
             isCapabilityFlagsPassword && !isKeyboardLayoutNumber && numberRowState != NumberRowState.ForceHide -> IdleUi.State.NumberRow
@@ -254,13 +278,6 @@ class KawaiiBarComponent : UniqueViewComponent<KawaiiBarComponent, FrameLayout>(
         } else false
     }
 
-    private var voiceInputSubtype: Pair<String, InputMethodSubtype>? = null
-
-    private val switchToVoiceInputCallback = View.OnClickListener {
-        val (id, subtype) = voiceInputSubtype ?: return@OnClickListener
-        InputMethodUtil.switchInputMethod(service, id, subtype)
-    }
-
     private val idleUi: IdleUi by lazy {
         IdleUi(context, theme, popup, commonKeyActionListener).apply {
             menuButton.setOnClickListener {
@@ -321,6 +338,17 @@ class KawaiiBarComponent : UniqueViewComponent<KawaiiBarComponent, FrameLayout>(
                     ClipboardManager.lastEntry?.let {
                         AppUtil.launchClipboardEdit(context, it.id, true)
                     }
+                    true
+                }
+            }
+            commonWordUi.suggestionView.apply {
+                setOnClickListener {
+                    commonWordMatch?.completion?.let { service.commitText(it) }
+                    commonWordMatch = null
+                    evalIdleUiState()
+                }
+                setOnLongClickListener {
+                    AppUtil.launchMainToCommonWords(context)
                     true
                 }
             }
@@ -427,43 +455,106 @@ class KawaiiBarComponent : UniqueViewComponent<KawaiiBarComponent, FrameLayout>(
             }
         }
         ClipboardManager.addOnUpdateListener(onClipboardUpdateListener)
+        commonWords = QuickPhraseManager.loadCommonWords()
+        QuickPhraseManager.addOnCommonWordsChangedListener(onCommonWordsChangedListener)
         clipboardSuggestion.registerOnChangeListener(onClipboardSuggestionUpdateListener)
         clipboardItemTimeout.registerOnChangeListener(onClipboardTimeoutUpdateListener)
+        voiceInput.addAudioVolumeListener(idleUi.audioVolumeListener)
     }
 
     override fun onStartInput(info: EditorInfo, capFlags: CapabilityFlags) {
+        val privateMode = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
+            info.imeOptions.hasFlag(EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            idleUi.privateMode(info.imeOptions.hasFlag(EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING))
+            idleUi.privateMode(privateMode)
         }
+        commonWords = QuickPhraseManager.loadCommonWords()
+        commonWordSuggestionsAllowed = !privateMode && !capFlags.has(CapabilityFlag.Password)
+        commonWordMatch = null
         isCapabilityFlagsPassword = toolbarNumRowOnPassword && capFlags.has(CapabilityFlag.Password)
         isInlineSuggestionPresent = false
         numberRowState = NumberRowState.Auto
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             idleUi.inlineSuggestionsBar.clear()
         }
-        voiceInputSubtype = InputMethodUtil.findVoiceSubtype(preferredVoiceInput)
-        val shouldShowVoiceInput =
-            showVoiceInputButton && voiceInputSubtype != null && !capFlags.has(CapabilityFlag.Password)
+        val shouldShowVoiceInput = voiceInput.shouldShowVoiceInput(capFlags)
         idleUi.setHideKeyboardIsVoiceInput(
             shouldShowVoiceInput,
-            if (shouldShowVoiceInput) switchToVoiceInputCallback else hideKeyboardCallback
+            if (shouldShowVoiceInput) voiceInput.voiceInputCallback else hideKeyboardCallback
         )
+        evalIdleUiState()
+        refreshCommonWordSuggestion()
+    }
+
+    override fun onSelectionUpdate(start: Int, end: Int) {
+        if (start != end) {
+            commonWordMatch = null
+            evalIdleUiState()
+            return
+        }
+        refreshCommonWordSuggestion()
+    }
+
+    private fun refreshCommonWordSuggestion() {
+        commonWordMatch = if (commonWordSuggestionsAllowed) {
+            val textBeforeCursor = runCatching {
+                service.currentInputConnection
+                    ?.getTextBeforeCursor(COMMON_WORD_LOOKBEHIND, 0)
+                    ?.toString()
+            }.getOrNull().orEmpty()
+            CommonWordMatcher.bestMatch(textBeforeCursor, commonWords)
+        } else {
+            null
+        }
+        commonWordMatch?.let { idleUi.commonWordUi.text.text = it.entry.phrase }
         evalIdleUiState()
     }
 
     override fun onPreeditEmptyStateUpdate(empty: Boolean) {
+        if (pluginPanelActive) return
         barStateMachine.push(PreeditUpdated, PreeditEmpty to empty)
     }
 
     override fun onCandidateUpdate(data: CandidateListEvent.Data) {
+        if (pluginPanelActive) return
         barStateMachine.push(CandidatesUpdated, CandidateEmpty to data.candidates.isEmpty())
     }
 
     override fun onWindowAttached(window: InputWindow) {
         when (window) {
+            is PluginPanelWindow -> {
+                pluginPanelActive = true
+                Timber.d("plugin panel attached, pluginPanelActive=true")
+                horizontalCandidate.usePluginSource(window.candidateSource)
+                window.onCandidatesPublished = { candidates ->
+                    horizontalCandidate.updateCandidates(candidates, candidates.size)
+                    if (candidates.isEmpty()) {
+                        // plugin published no candidates: fall back to the toolbar
+                        barStateMachine.push(PreeditUpdated, PreeditEmpty to true)
+                        barStateMachine.push(CandidatesUpdated, CandidateEmpty to true)
+                    } else {
+                        barStateMachine.push(CandidatesUpdated, CandidateEmpty to false)
+                    }
+                }
+                // while the panel is active, the expand button closes the panel
+                candidateUi.expandButton.apply {
+                    isVisible = true
+                    setIcon(R.drawable.ic_baseline_arrow_back_24)
+                    contentDescription = context.getString(R.string.back_to_keyboard)
+                    setOnClickListener {
+                        windowManager.attachWindow(KeyboardWindow)
+                    }
+                }
+                barStateMachine.push(
+                    CandidatesUpdated,
+                    CandidateEmpty to window.candidateSource.candidates.isEmpty()
+                )
+            }
             is InputWindow.ExtendedInputWindow<*> -> {
                 titleUi.setTitle(window.title)
-                window.onCreateBarExtension()?.let { titleUi.addExtension(it, window.showTitle) }
+                window.onCreateBarExtension()?.let {
+                    titleUi.addExtension(it, window.showTitle, window.showReturnButton)
+                }
                 titleUi.setReturnButtonOnClickListener {
                     windowManager.attachWindow(KeyboardWindow)
                 }
@@ -474,6 +565,25 @@ class KawaiiBarComponent : UniqueViewComponent<KawaiiBarComponent, FrameLayout>(
     }
 
     override fun onWindowDetached(window: InputWindow) {
+        if (window is PluginPanelWindow) {
+            pluginPanelActive = false
+            Timber.d("plugin panel detached, pluginPanelActive=false")
+            window.onCandidatesPublished = null
+            horizontalCandidate.restoreFcitxSource()
+            // restore the expand button to its normal (state-machine driven) behavior
+            candidateUi.expandButton.apply {
+                setOnClickListener(null)
+                when (expandButtonStateMachine.currentState) {
+                    ClickToAttachWindow -> setExpandButtonToAttach()
+                    ClickToDetachWindow -> setExpandButtonToDetach()
+                    Hidden -> setExpandButtonEnabled(false)
+                }
+            }
+            barStateMachine.push(
+                CandidatesUpdated,
+                CandidateEmpty to !horizontalCandidate.hasFcitxCandidates
+            )
+        }
         barStateMachine.push(WindowDetached)
     }
 
@@ -538,11 +648,16 @@ class KawaiiBarComponent : UniqueViewComponent<KawaiiBarComponent, FrameLayout>(
 
     companion object {
         const val HEIGHT = 40
+        private const val COMMON_WORD_LOOKBEHIND = 256
     }
 
     fun onKeyboardLayoutSwitched(isNumber: Boolean) {
         isKeyboardLayoutNumber = isNumber
         evalIdleUiState()
     }
+
+    /**
+     * Show/hide the interactive panel button in the toolbar.
+     */
 
 }
