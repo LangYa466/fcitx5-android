@@ -114,6 +114,58 @@ object ThemePreset {
         genericActiveForegroundColor = 0xfffafafa
     )
 
+    val MaterialDesignLight = Theme.Builtin(
+        name = "MaterialDesignLight",
+        isDark = false,
+        backgroundColor = 0xffffffff,
+        barColor = 0xfff5f5f5,
+        keyboardColor = 0xffe8e8e8,
+        keyBackgroundColor = 0xffffffff,
+        keyTextColor = 0xff212121,
+        candidateTextColor = 0xff212121,
+        candidateLabelColor = 0xff757575,
+        candidateCommentColor = 0xff9e9e9e,
+        altKeyBackgroundColor = 0xffd6d6d6,
+        altKeyTextColor = 0xff424242,
+        accentKeyBackgroundColor = 0xff4285f4,
+        accentKeyTextColor = 0xffffffff,
+        keyPressHighlightColor = 0xffc8c8c8,
+        keyShadowColor = 0xffbdbdbd,
+        popupBackgroundColor = 0xffffffff,
+        popupTextColor = 0xff212121,
+        spaceBarColor = 0xffffffff,
+        dividerColor = 0xffbdbdbd,
+        clipboardEntryColor = 0xfff5f5f5,
+        genericActiveBackgroundColor = 0xff4285f4,
+        genericActiveForegroundColor = 0xffffffff
+    )
+
+    val MaterialDesignDark = Theme.Builtin(
+        name = "MaterialDesignDark",
+        isDark = true,
+        backgroundColor = 0xff121212,
+        barColor = 0xff1e1e1e,
+        keyboardColor = 0xff2c2c2c,
+        keyBackgroundColor = 0xff383838,
+        keyTextColor = 0xffe0e0e0,
+        candidateTextColor = 0xffe0e0e0,
+        candidateLabelColor = 0xff9e9e9e,
+        candidateCommentColor = 0xff757575,
+        altKeyBackgroundColor = 0xff424242,
+        altKeyTextColor = 0xffbdbdbd,
+        accentKeyBackgroundColor = 0xff8ab4f8,
+        accentKeyTextColor = 0xff202124,
+        keyPressHighlightColor = 0xff505050,
+        keyShadowColor = 0xff1a1a1a,
+        popupBackgroundColor = 0xff383838,
+        popupTextColor = 0xffe0e0e0,
+        spaceBarColor = 0xff383838,
+        dividerColor = 0xff424242,
+        clipboardEntryColor = 0xff2c2c2c,
+        genericActiveBackgroundColor = 0xff8ab4f8,
+        genericActiveForegroundColor = 0xff202124
+    )
+
     val DeepBlue = Theme.Builtin(
         name = "DeepBlue",
         isDark = true,
