@@ -5,14 +5,15 @@
 
 package org.fcitx.fcitx5.android.input.voice
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.view.View
-import android.view.inputmethod.InputMethodSubtype
 import org.fcitx.fcitx5.android.core.CapabilityFlag
 import org.fcitx.fcitx5.android.core.CapabilityFlags
 import org.fcitx.fcitx5.android.core.FormattedText
@@ -23,6 +24,7 @@ import org.fcitx.fcitx5.android.input.broadcast.InputBroadcastReceiver
 import org.fcitx.fcitx5.android.input.dependency.context
 import org.fcitx.fcitx5.android.input.dependency.fcitx
 import org.fcitx.fcitx5.android.input.dependency.inputMethodService
+import org.fcitx.fcitx5.android.ui.main.MainActivity
 import org.fcitx.fcitx5.android.utils.InputMethodUtil
 import org.fcitx.fcitx5.android.utils.WeakHashSet
 import org.fcitx.fcitx5.android.utils.toast
@@ -44,24 +46,24 @@ class VoiceInputComponent : UniqueComponent<VoiceInputComponent>(), Dependent,
     private val showVoiceInputButton by prefs.keyboard.showVoiceInputButton
     private val preferredVoiceInput by prefs.keyboard.preferredVoiceInput
 
-    private var voiceInputSubtype: Pair<String, InputMethodSubtype>? = null
-
     fun shouldShowVoiceInput(capFlags: CapabilityFlags): Boolean {
-        voiceInputSubtype = InputMethodUtil.findVoiceSubtype(preferredVoiceInput)
-        return showVoiceInputButton && voiceInputSubtype != null && !capFlags.has(CapabilityFlag.Password)
+        val canUseSpeechRecognizer = SpeechRecognizer.isRecognitionAvailable(context)
+        val hasVoiceSubtype = InputMethodUtil.findVoiceSubtype(preferredVoiceInput) != null
+        return showVoiceInputButton && (hasVoiceSubtype || canUseSpeechRecognizer) &&
+            !capFlags.has(CapabilityFlag.Password)
     }
 
     // TODO: switch between "other voice input method" and "SpeechRecognizer"
     val voiceInputCallback = View.OnClickListener {
-        val preferredIdx = InputMethodUtil.listVoiceInputMethods().indexOfFirst { (imi, subType) ->
+        val preferredIdx = InputMethodUtil.listVoiceInputMethods().indexOfFirst { (imi, _) ->
             imi.id == preferredVoiceInput
         }
         if (preferredIdx < 0) {
             startListening()
             return@OnClickListener
         }
-        val (id, subtype) = voiceInputSubtype ?: return@OnClickListener
-        InputMethodUtil.switchInputMethod(service, id, subtype)
+        val (imi, subtype) = InputMethodUtil.listVoiceInputMethods()[preferredIdx]
+        InputMethodUtil.switchInputMethod(service, imi.id, subtype)
     }
 
     private var languageCode = ""
@@ -82,11 +84,12 @@ class VoiceInputComponent : UniqueComponent<VoiceInputComponent>(), Dependent,
         }
     }
 
-    // TODO: destroy recognizer onFinishInput
-    private val speechRecognizer: SpeechRecognizer by lazy {
-        SpeechRecognizer.createSpeechRecognizer(context).apply {
+    private var speechRecognizer: SpeechRecognizer? = null
+
+    private fun getSpeechRecognizer(): SpeechRecognizer {
+        return speechRecognizer ?: SpeechRecognizer.createSpeechRecognizer(context).apply {
             setRecognitionListener(recognitionListener)
-        }
+        }.also { speechRecognizer = it }
     }
 
     private var startedListening = false
@@ -139,16 +142,17 @@ class VoiceInputComponent : UniqueComponent<VoiceInputComponent>(), Dependent,
                 startedListening = false
                 audioVolumeListeners.forEach { it.onAudioVolumeChange(false, 0f) }
                 Timber.d("onError: $error")
-                context.toast("onError: $error")
-                when (error) {
+                val message = when (error) {
                     SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> {
-                        // TODO: launch activity to request permission
+                        requestRecordAudioPermission()
+                        return
                     }
-                    SpeechRecognizer.ERROR_CLIENT -> {
-                    }
-                    else -> {
-                    }
+                    SpeechRecognizer.ERROR_NO_MATCH -> null
+                    SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> null
+                    SpeechRecognizer.ERROR_CLIENT -> null
+                    else -> "onError: $error"
                 }
+                message?.let { context.toast(it) }
             }
 
             override fun onPartialResults(partialResults: Bundle) {
@@ -175,11 +179,21 @@ class VoiceInputComponent : UniqueComponent<VoiceInputComponent>(), Dependent,
     fun startListening() {
         if (startedListening) {
             startedListening = false
-            speechRecognizer.stopListening()
+            speechRecognizer?.stopListening()
             return
         }
 
-        speechRecognizer.startListening(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
+            context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestRecordAudioPermission()
+            return
+        }
+
+        // reset fcitx preedit to avoid committing stale preedit along with speech text
+        service.postFcitxJob { reset() }
+
+        getSpeechRecognizer().startListening(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             // required
             putExtra(
                 RecognizerIntent.EXTRA_LANGUAGE_MODEL,
@@ -192,5 +206,35 @@ class VoiceInputComponent : UniqueComponent<VoiceInputComponent>(), Dependent,
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
         })
+    }
+
+    fun onFinishInputView() {
+        if (startedListening) {
+            speechRecognizer?.cancel()
+            startedListening = false
+        }
+        speechRecognizer?.destroy()
+        speechRecognizer = null
+        audioVolumeListeners.forEach { it.onAudioVolumeChange(false, 0f) }
+    }
+
+    private fun requestRecordAudioPermission() {
+        if (onVoicePermissionGranted == null) {
+            onVoicePermissionGranted = { startListening() }
+        }
+        val intent = Intent(context, MainActivity::class.java).apply {
+            action = ACTION_REQUEST_VOICE_PERMISSION
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
+    }
+
+    companion object {
+        const val ACTION_REQUEST_VOICE_PERMISSION =
+            "org.fcitx.fcitx5.android.action.REQUEST_VOICE_PERMISSION"
+
+        // set before launching MainActivity to request RECORD_AUDIO permission,
+        // called on the main thread when the permission is granted
+        var onVoicePermissionGranted: (() -> Unit)? = null
     }
 }

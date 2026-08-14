@@ -368,6 +368,7 @@ class InputView(
      */
     fun onFinishInputView() {
         interactivePanelManager.onFinishInput()
+        voiceInput.onFinishInputView()
     }
 
     override fun onStartHandleFcitxEvent() {

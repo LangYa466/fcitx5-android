@@ -83,28 +83,27 @@ class IdleUi(
 
     val hideKeyboardButton = ToolButton(ctx, R.drawable.ic_baseline_arrow_drop_down_24, theme)
 
-//    val emptyBar = Space(ctx)
+    val emptyBar = Space(ctx)
 
-    // TODO: dedicated UI for active voice input
-    val emptyBar = SoundWaveView(ctx).apply {
+    // only shown while voice input is active, keeps the idle bar plain otherwise
+    private val soundWave = SoundWaveView(ctx).apply {
         enableIdle(true)
         setColor(theme.altKeyTextColor)
-//        volumeCount = 20
-//        volumeIdleCount = 8
         maxVolume = 12
         minVolume = 2
         minVolumeBarHeight = dp(3)
         maxVolumeBarHeight = dp(KawaiiBarComponent.HEIGHT - 6)
-//        volumeBarMargin = dp(4)
-//        volumeBarHalfWidth = dp(2)
         maxIdleHeight = maxVolumeBarHeight / 2
+        visibility = View.GONE
     }
 
     val audioVolumeListener = VoiceInputComponent.AudioVolumeListener { listening, dB ->
         if (listening) {
-            emptyBar.handleVolume(dB.roundToInt())
+            soundWave.visibility = View.VISIBLE
+            soundWave.handleVolume(dB.roundToInt())
         } else {
-            emptyBar.stopDance()
+            soundWave.stopDance()
+            soundWave.visibility = View.GONE
         }
     }
 
@@ -156,6 +155,11 @@ class IdleUi(
             centerVertically()
         })
         add(animator, lParams(matchConstraints, matchParent) {
+            after(menuButton)
+            before(hideKeyboardButton)
+            centerVertically()
+        })
+        add(soundWave, lParams(matchConstraints, matchParent) {
             after(menuButton)
             before(hideKeyboardButton)
             centerVertically()
