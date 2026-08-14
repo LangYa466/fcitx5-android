@@ -23,6 +23,7 @@ import org.fcitx.fcitx5.android.data.theme.Theme
 import org.fcitx.fcitx5.android.input.bar.KawaiiBarComponent
 import org.fcitx.fcitx5.android.input.bar.ui.idle.ButtonsBarUi
 import org.fcitx.fcitx5.android.input.bar.ui.idle.ClipboardSuggestionUi
+import org.fcitx.fcitx5.android.input.bar.ui.idle.CommonWordSuggestionUi
 import org.fcitx.fcitx5.android.input.bar.ui.idle.InlineSuggestionsUi
 import org.fcitx.fcitx5.android.input.bar.ui.idle.NumberRow
 import org.fcitx.fcitx5.android.input.keyboard.CommonKeyActionListener
@@ -55,7 +56,7 @@ class IdleUi(
 ) : Ui {
 
     enum class State {
-        Empty, Toolbar, Clipboard, NumberRow, InlineSuggestion
+        Empty, Toolbar, Clipboard, CommonWord, NumberRow, InlineSuggestion
     }
 
     var currentState = State.Empty
@@ -111,6 +112,8 @@ class IdleUi(
 
     val clipboardUi = ClipboardSuggestionUi(ctx, theme)
 
+    val commonWordUi = CommonWordSuggestionUi(ctx, theme)
+
     val numberRow = NumberRow(ctx, theme).apply {
         visibility = View.GONE
     }
@@ -121,6 +124,7 @@ class IdleUi(
         add(emptyBar, lParams(matchParent, matchParent))
         add(buttonsUi.root, lParams(matchParent, matchParent))
         add(clipboardUi.root, lParams(matchParent, matchParent))
+        add(commonWordUi.root, lParams(matchParent, matchParent))
         add(inlineSuggestionsBar.root, lParams(matchParent, matchParent))
     }
 
@@ -249,8 +253,9 @@ class IdleUi(
             State.Empty -> animator.displayedChild = 0
             State.Toolbar -> animator.displayedChild = 1
             State.Clipboard -> animator.displayedChild = 2
+            State.CommonWord -> animator.displayedChild = 3
             State.NumberRow -> {}
-            State.InlineSuggestion -> animator.displayedChild = 3
+            State.InlineSuggestion -> animator.displayedChild = 4
         }
         if (state == State.NumberRow) {
             numberRow.keyActionListener = commonKeyActionListener.listener
