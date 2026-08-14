@@ -28,7 +28,9 @@ android {
                     "androidfrontend",
                     "androidkeyboard",
                     "androidnotification",
-                    "pluginpanel"
+                    "pluginpanel",
+                    // rime input method
+                    "rime"
                 )
             }
         }
@@ -73,6 +75,10 @@ fcitxComponent {
         "usr/share/fcitx5/inputmethod/$it.conf"
     }
     installPrebuiltAssets = true
+}
+
+generateDataDescriptor {
+    symlinks.put("usr/share/rime-data/opencc", "usr/share/opencc")
 }
 
 ksp {

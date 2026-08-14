@@ -45,6 +45,29 @@ add_library(pinyin-customphrase STATIC "${CHINESE_ADDONS_PINYIN_DIR}/customphras
 target_include_directories(pinyin-customphrase INTERFACE "${CHINESE_ADDONS_PINYIN_DIR}")
 target_link_libraries(pinyin-customphrase PRIVATE Fcitx5::Utils LibIME::Core)
 
+# rime input method (fcitx5-rime)
+set(Rime_VERSION "1.12.0")
+set(Rime_dependencies
+        log
+        "${PREBUILT_DIR}/glog/${ANDROID_ABI}/lib/libglog.a"
+        "${PREBUILT_DIR}/leveldb/${ANDROID_ABI}/lib/libleveldb.a"
+        "${PREBUILT_DIR}/lua/${ANDROID_ABI}/lib/liblua_static.a"
+        "${PREBUILT_DIR}/marisa/${ANDROID_ABI}/lib/libmarisa.a"
+        "${PREBUILT_DIR}/opencc/${ANDROID_ABI}/lib/libopencc.a"
+        "${PREBUILT_DIR}/yaml-cpp/${ANDROID_ABI}/lib/libyaml-cpp.a"
+        )
+add_library(Rime_static STATIC IMPORTED)
+set_target_properties(Rime_static PROPERTIES
+        IMPORTED_LOCATION "${PREBUILT_DIR}/librime/${ANDROID_ABI}/lib/librime.a"
+        INTERFACE_INCLUDE_DIRECTORIES "${PREBUILT_DIR}/librime/${ANDROID_ABI}/include"
+        INTERFACE_LINK_LIBRARIES "${Rime_dependencies}"
+        )
+set(RIME_TARGET $<LINK_LIBRARY:WHOLE_ARCHIVE,Rime_static>)
+set(RIME_DATA_DIR "${FCITX_INSTALL_DATADIR}/rime-data")
+set(FCITX_ADDON_TYPE "SharedLibrary")
+add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/rime/fcitx5-rime"
+        "${CMAKE_CURRENT_BINARY_DIR}/fcitx5-rime")
+
 add_library(native-lib SHARED native-lib.cpp androidaddonloader/androidaddonloader.cpp)
 target_link_libraries(native-lib
         log
@@ -78,9 +101,12 @@ add_custom_target(copy-fcitx5-modules
         $<TARGET_PROPERTY:fcitx5-chinese-addons::fullwidth,IMPORTED_LOCATION>
         $<TARGET_PROPERTY:fcitx5-chinese-addons::pinyinhelper,IMPORTED_LOCATION>
         $<TARGET_PROPERTY:fcitx5-chinese-addons::punctuation,IMPORTED_LOCATION>
+        $<TARGET_PROPERTY:fcitx5-chinese-addons::fullwidth,IMPORTED_LOCATION>
+        $<TARGET_FILE:rime>
         ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}
         COMMENT "Copying fcitx5 module libraries to :app"
         )
+add_dependencies(copy-fcitx5-modules rime)
 
 # install prebuilt assets
 install(FILES "${PREBUILT_DIR}/spell-dict/en_dict.fscd" DESTINATION "${FCITX_INSTALL_PKGDATADIR}/spell" COMPONENT prebuilt-assets)
@@ -89,3 +115,74 @@ install(DIRECTORY "${PREBUILT_DIR}/chinese-addons-data/pinyinhelper" DESTINATION
 install(DIRECTORY "${PREBUILT_DIR}/libime/table" DESTINATION "${FCITX_INSTALL_PKGDATADIR}" COMPONENT prebuilt-assets)
 install(DIRECTORY "${PREBUILT_DIR}/libime/data/" DESTINATION "${FCITX_INSTALL_DATADIR}/libime" COMPONENT prebuilt-assets)
 install(DIRECTORY "${PREBUILT_DIR}/opencc/data/" DESTINATION "${FCITX_INSTALL_DATADIR}/opencc" COMPONENT prebuilt-assets)
+
+# rime-data (rime-ice 雾凇拼音)
+set(RIME_SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/rime")
+install(FILES
+        "${RIME_SRC_DIR}/default.yaml"
+        "${RIME_SRC_DIR}/rime_ice.custom.yaml"
+        "${RIME_SRC_DIR}/rime-essay/essay.txt"
+        "${RIME_SRC_DIR}/rime-stroke/stroke.dict.yaml"
+        "${RIME_SRC_DIR}/rime-stroke/stroke.schema.yaml"
+        "${RIME_SRC_DIR}/rime-ice/rime_ice.schema.yaml"
+        "${RIME_SRC_DIR}/rime-ice/rime_ice.dict.yaml"
+        "${RIME_SRC_DIR}/rime-ice/melt_eng.schema.yaml"
+        "${RIME_SRC_DIR}/rime-ice/melt_eng.dict.yaml"
+        "${RIME_SRC_DIR}/rime-ice/radical_pinyin.schema.yaml"
+        "${RIME_SRC_DIR}/rime-ice/radical_pinyin.dict.yaml"
+        "${RIME_SRC_DIR}/rime-ice/symbols_v.yaml"
+        "${RIME_SRC_DIR}/rime-ice/symbols_caps_v.yaml"
+        "${RIME_SRC_DIR}/rime-ice/custom_phrase.txt"
+        DESTINATION "${FCITX_INSTALL_DATADIR}/rime-data"
+        COMPONENT prebuilt-assets
+        )
+install(FILES
+        "${RIME_SRC_DIR}/rime-ice/cn_dicts/41448.dict.yaml"
+        "${RIME_SRC_DIR}/rime-ice/cn_dicts/8105.dict.yaml"
+        "${RIME_SRC_DIR}/rime-ice/cn_dicts/base.dict.yaml"
+        "${RIME_SRC_DIR}/rime-ice/cn_dicts/ext.dict.yaml"
+        "${RIME_SRC_DIR}/rime-ice/cn_dicts/others.dict.yaml"
+        "${RIME_SRC_DIR}/rime-ice/cn_dicts/tencent.dict.yaml"
+        DESTINATION "${FCITX_INSTALL_DATADIR}/rime-data/cn_dicts"
+        COMPONENT prebuilt-assets
+        )
+install(FILES
+        "${RIME_SRC_DIR}/rime-ice/en_dicts/en.dict.yaml"
+        "${RIME_SRC_DIR}/rime-ice/en_dicts/en_ext.dict.yaml"
+        DESTINATION "${FCITX_INSTALL_DATADIR}/rime-data/en_dicts"
+        COMPONENT prebuilt-assets
+        )
+install(FILES
+        "${RIME_SRC_DIR}/lua/email.lua"
+        "${RIME_SRC_DIR}/rime-ice/lua/autocap_filter.lua"
+        "${RIME_SRC_DIR}/rime-ice/lua/calc_translator.lua"
+        "${RIME_SRC_DIR}/rime-ice/lua/cn_en_spacer.lua"
+        "${RIME_SRC_DIR}/rime-ice/lua/convert_ar_num_to_zh.lua"
+        "${RIME_SRC_DIR}/rime-ice/lua/corrector.lua"
+        "${RIME_SRC_DIR}/rime-ice/lua/date_translator.lua"
+        "${RIME_SRC_DIR}/rime-ice/lua/debuger.lua"
+        "${RIME_SRC_DIR}/rime-ice/lua/en_spacer.lua"
+        "${RIME_SRC_DIR}/rime-ice/lua/force_gc.lua"
+        "${RIME_SRC_DIR}/rime-ice/lua/is_in_user_dict.lua"
+        "${RIME_SRC_DIR}/rime-ice/lua/long_word_filter.lua"
+        "${RIME_SRC_DIR}/rime-ice/lua/lunar.db"
+        "${RIME_SRC_DIR}/rime-ice/lua/lunar.lua"
+        "${RIME_SRC_DIR}/rime-ice/lua/number_translator.lua"
+        "${RIME_SRC_DIR}/rime-ice/lua/pin_cand_filter.lua"
+        "${RIME_SRC_DIR}/rime-ice/lua/reduce_english_filter.lua"
+        "${RIME_SRC_DIR}/rime-ice/lua/search.lua"
+        "${RIME_SRC_DIR}/rime-ice/lua/select_character.lua"
+        "${RIME_SRC_DIR}/rime-ice/lua/t9_preedit.lua"
+        "${RIME_SRC_DIR}/rime-ice/lua/unicode.lua"
+        "${RIME_SRC_DIR}/rime-ice/lua/uuid.lua"
+        "${RIME_SRC_DIR}/rime-ice/lua/v_filter.lua"
+        DESTINATION "${FCITX_INSTALL_DATADIR}/rime-data/lua"
+        COMPONENT prebuilt-assets
+        )
+install(FILES
+        "${RIME_SRC_DIR}/rime-ice/opencc/emoji.json"
+        "${RIME_SRC_DIR}/rime-ice/opencc/emoji.txt"
+        "${RIME_SRC_DIR}/rime-ice/opencc/others.txt"
+        DESTINATION "${FCITX_INSTALL_DATADIR}/opencc"
+        COMPONENT prebuilt-assets
+        )

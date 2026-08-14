@@ -23,18 +23,6 @@
 [submodule "plugin/unikey/src/main/cpp/fcitx5-unikey"]
 	path = plugin/unikey/src/main/cpp/fcitx5-unikey
 	url = https://github.com/fcitx/fcitx5-unikey.git
-[submodule "plugin/rime/src/main/cpp/fcitx5-rime"]
-	path = plugin/rime/src/main/cpp/fcitx5-rime
-	url = https://github.com/fcitx/fcitx5-rime.git
-[submodule "plugin/rime/src/main/cpp/rime-prelude"]
-	path = plugin/rime/src/main/cpp/rime-prelude
-	url = https://github.com/rime/rime-prelude.git
-[submodule "plugin/rime/src/main/cpp/rime-essay"]
-	path = plugin/rime/src/main/cpp/rime-essay
-	url = https://github.com/rime/rime-essay.git
-[submodule "plugin/rime/src/main/cpp/rime-stroke"]
-	path = plugin/rime/src/main/cpp/rime-stroke
-	url = https://github.com/rime/rime-stroke.git
 [submodule "plugin/hangul/src/main/cpp/fcitx5-hangul"]
 	path = plugin/hangul/src/main/cpp/fcitx5-hangul
 	url = https://github.com/fcitx/fcitx5-hangul.git
@@ -53,6 +41,15 @@
 [submodule "plugin/thai/src/main/cpp/fcitx5-libthai"]
 	path = plugin/thai/src/main/cpp/fcitx5-libthai
 	url = https://github.com/fcitx/fcitx5-libthai
-[submodule "plugin/rime/src/main/cpp/rime-ice"]
-	path = plugin/rime/src/main/cpp/rime-ice
+[submodule "app/src/main/cpp/rime/fcitx5-rime"]
+	path = app/src/main/cpp/rime/fcitx5-rime
+	url = https://github.com/fcitx/fcitx5-rime.git
+[submodule "app/src/main/cpp/rime/rime-essay"]
+	path = app/src/main/cpp/rime/rime-essay
+	url = https://github.com/rime/rime-essay.git
+[submodule "app/src/main/cpp/rime/rime-stroke"]
+	path = app/src/main/cpp/rime/rime-stroke
+	url = https://github.com/rime/rime-stroke.git
+[submodule "app/src/main/cpp/rime/rime-ice"]
+	path = app/src/main/cpp/rime/rime-ice
 	url = https://github.com/iDvel/rime-ice.git
