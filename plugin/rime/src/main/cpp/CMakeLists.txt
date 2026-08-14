@@ -47,7 +47,6 @@ install(FILES
         "rime-ice/rime_ice.schema.yaml"
         "rime_ice.custom.yaml"
         "rime-ice/rime_ice.dict.yaml"
-        "email.dict.yaml"
         "rime-ice/melt_eng.schema.yaml"
         "rime-ice/melt_eng.dict.yaml"
         "rime-ice/radical_pinyin.schema.yaml"
@@ -86,6 +85,7 @@ install(FILES
         )
 
 install(FILES
+        "lua/email.lua"
         "rime-ice/lua/autocap_filter.lua"
         "rime-ice/lua/calc_translator.lua"
         "rime-ice/lua/cn_en_spacer.lua"
